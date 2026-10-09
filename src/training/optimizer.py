@@ -46,8 +46,10 @@ def build_differential_optimizer_groups(
         f"  - Router parameters: {len(router_params)} tensors (lr={lr_router})"
     )
 
-    return [
-        {"params": base_params, "lr": lr_base, "weight_decay": weight_decay, "name": "base"},
-        {"params": expert_params, "lr": lr_experts, "weight_decay": weight_decay, "name": "experts"},
-        {"params": router_params, "lr": lr_router, "weight_decay": 0.0, "name": "router"},
-    ]
+    groups = []
+    if base_params:
+        groups.append({"params": base_params, "lr": lr_base, "weight_decay": weight_decay, "name": "base"})
+    groups.append({"params": expert_params, "lr": lr_experts, "weight_decay": weight_decay, "name": "experts"})
+    groups.append({"params": router_params, "lr": lr_router, "weight_decay": 0.0, "name": "router"})
+
+    return groups
