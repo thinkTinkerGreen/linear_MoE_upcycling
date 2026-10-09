@@ -31,7 +31,7 @@ env.bak/
 venv.bak/
 
 # Data & Checkpoints (Prevent uploading gigabytes to git)
-data/
+/data/
 *.json
 *.pt
 *.bin
