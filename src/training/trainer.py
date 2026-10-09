@@ -73,9 +73,6 @@ def train_worker(rank: int, config: Dict[str, Any]):
     start_epoch, global_step = load_checkpoint(model, optimizer, shared_dir, device)
 
     # 6. Training Loop Setup
-    use_cuda = torch.cuda.is_available()
-    device_type = "cuda" if use_cuda else "cpu"
-    scaler = torch.amp.GradScaler(device_type, enabled=use_cuda)
     model.train()
 
     num_epochs = train_cfg["num_epochs"]
@@ -94,7 +91,7 @@ def train_worker(rank: int, config: Dict[str, Any]):
     print(f"[Worker {rank}] Logging metrics to {log_file_path}")
 
     for epoch in range(start_epoch, num_epochs):
-        optimizer.zero_grad()
+        optimizer.zero_grad(set_to_none=True)
         running_lm_loss = 0.0
         running_aux_loss = 0.0
 
@@ -103,32 +100,29 @@ def train_worker(rank: int, config: Dict[str, Any]):
             attention_mask = batch["attention_mask"].to(device)
             labels = batch["labels"].to(device)
 
-            with torch.amp.autocast(device_type=device_type, dtype=torch.float16 if use_cuda else torch.bfloat16, enabled=use_cuda):
-                outputs = model(
-                    input_ids=input_ids,
-                    attention_mask=attention_mask,
-                    labels=labels,
-                )
-                lm_loss = outputs.loss
+            outputs = model(
+                input_ids=input_ids,
+                attention_mask=attention_mask,
+                labels=labels,
+            )
+            lm_loss = outputs.loss
 
-                # Sum auxiliary load-balancing loss across all decoder MoE layers
-                aux_loss = torch.tensor(0.0, device=device)
-                for layer in model.model.layers:
-                    if hasattr(layer.mlp, "aux_loss"):
-                        aux_loss += layer.mlp.aux_loss.to(device)
+            # Sum auxiliary load-balancing loss across all decoder MoE layers
+            aux_loss = torch.tensor(0.0, device=device)
+            for layer in model.model.layers:
+                if hasattr(layer.mlp, "aux_loss"):
+                    aux_loss += layer.mlp.aux_loss.to(device)
 
-                batch_total_loss = lm_loss + aux_loss_coef * aux_loss
-                total_loss = batch_total_loss / grad_accum_steps
+            batch_total_loss = lm_loss + aux_loss_coef * aux_loss
+            total_loss = batch_total_loss / grad_accum_steps
 
-            scaler.scale(total_loss).backward()
+            total_loss.backward()
             running_lm_loss += lm_loss.item()
             running_aux_loss += aux_loss.item()
 
             if (step + 1) % grad_accum_steps == 0:
-                scaler.unscale_(optimizer)
                 torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=max_grad_norm)
-                scaler.step(optimizer)
-                scaler.update()
+                optimizer.step()
                 optimizer.zero_grad(set_to_none=True)
                 global_step += 1
 

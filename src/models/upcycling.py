@@ -37,7 +37,10 @@ def upcycle_smollm2_to_moe(
     # Enable gradient checkpointing to slash activation memory by ~60%
     if hasattr(model, "gradient_checkpointing_enable"):
         model.gradient_checkpointing_enable()
-        print("Gradient checkpointing enabled.")
+        model.config.use_cache = False
+        if hasattr(model, "enable_input_require_grads"):
+            model.enable_input_require_grads()
+        print("Gradient checkpointing enabled (use_cache=False, input_require_grads=True).")
 
     model.to(device)
     print("Upcycling completed successfully.")
