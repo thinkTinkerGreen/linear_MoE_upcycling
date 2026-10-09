@@ -7,7 +7,7 @@ model:
   router_init_std: 0.02
 
 data:
-  shared_dir: "/content/drive/MyDrive/SmolLM2_MoE_Shared"
+  shared_dir: "/content/drive/MyDrive/linear_MoE_upcycling"
   max_seq_length: 512
   num_shards: 2
 

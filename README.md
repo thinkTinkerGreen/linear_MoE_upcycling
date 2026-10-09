@@ -88,7 +88,7 @@ pytest tests/
 #### A. Curate & Shard the Dataset
 ```bash
 python -m src.data.curate \
-  --output_dir /content/drive/MyDrive/SmolLM2_MoE_Shared \
+  --output_dir /content/drive/MyDrive/linear_MoE_upcycling \
   --num_shards 2
 ```
 
