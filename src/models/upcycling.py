@@ -14,7 +14,7 @@ def upcycle_smollm2_to_moe(
     Converts pre-trained SmolLM2 dense MLP layers into SparseMoEBlock modules.
     """
     if torch_dtype is None:
-        torch_dtype = torch.bfloat16 if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else (torch.float16 if torch.cuda.is_available() else torch.float32)
+        torch_dtype = torch.float16 if torch.cuda.is_available() else torch.float32
 
     print(f"Loading dense base model from {model_id} (dtype={torch_dtype})...")
     model = AutoModelForCausalLM.from_pretrained(

@@ -103,7 +103,7 @@ def train_worker(rank: int, config: Dict[str, Any]):
             attention_mask = batch["attention_mask"].to(device)
             labels = batch["labels"].to(device)
 
-            with torch.amp.autocast(device_type=device_type, enabled=use_cuda):
+            with torch.amp.autocast(device_type=device_type, dtype=torch.float16 if use_cuda else torch.bfloat16, enabled=use_cuda):
                 outputs = model(
                     input_ids=input_ids,
                     attention_mask=attention_mask,
