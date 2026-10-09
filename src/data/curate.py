@@ -25,17 +25,19 @@ def build_and_shard_dataset(
     os.makedirs(output_dir, exist_ok=True)
     formatted_data: List[Dict[str, str]] = []
 
-    print("Fetching Domain 1: Regional Geography & Farming in India (gandharv/Agri_QA)...")
+    print("Fetching Domain 1: Regional Geography & Farming in India (KisanVaani/agriculture-qa-english-only)...")
     try:
-        ds_agri = load_dataset("gandharv/Agri_QA", split="train")
+        ds_agri = load_dataset("KisanVaani/agriculture-qa-english-only", split="train")
         for item in ds_agri:
-            if "Question" in item and "Answer" in item:
+            q = item.get("question") or item.get("Question")
+            a = item.get("answers") or item.get("Answer")
+            if q and a:
                 formatted_data.append({
-                    "text": f"<|im_start|>user\n{item['Question']}<|im_end|>\n<|im_start|>assistant\n{item['Answer']}<|im_end|>"
+                    "text": f"<|im_start|>user\n{q}<|im_end|>\n<|im_start|>assistant\n{a}<|im_end|>"
                 })
-        print(f"Loaded {len(ds_agri)} Agri_QA samples.")
+        print(f"Loaded {len(ds_agri)} Agriculture QA samples.")
     except Exception as e:
-        print(f"Skipping Agri_QA: {e}")
+        print(f"Skipping Agriculture QA: {e}")
 
     print("Fetching Domain 2: Nutritional Facts (tatsu-lab/alpaca filtered)...")
     try:
