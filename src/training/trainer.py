@@ -114,14 +114,24 @@ def train_worker(rank: int, config: Dict[str, Any]):
                     aux_loss += layer.mlp.aux_loss.to(device)
 
             batch_total_loss = lm_loss + aux_loss_coef * aux_loss
-            total_loss = batch_total_loss / grad_accum_steps
 
+            if torch.isnan(batch_total_loss) or torch.isinf(batch_total_loss):
+                print(f"[Worker {rank}] Warning: NaN/Inf detected in loss at step {step}. Skipping batch.")
+                optimizer.zero_grad(set_to_none=True)
+                continue
+
+            total_loss = batch_total_loss / grad_accum_steps
             total_loss.backward()
             running_lm_loss += lm_loss.item()
             running_aux_loss += aux_loss.item()
 
             if (step + 1) % grad_accum_steps == 0:
-                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=max_grad_norm)
+                grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=max_grad_norm)
+                if torch.isnan(grad_norm) or torch.isinf(grad_norm):
+                    print(f"[Worker {rank}] Warning: NaN/Inf grad norm detected. Skipping optimizer step.")
+                    optimizer.zero_grad(set_to_none=True)
+                    continue
+
                 optimizer.step()
                 optimizer.zero_grad(set_to_none=True)
                 global_step += 1

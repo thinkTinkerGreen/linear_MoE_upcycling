@@ -52,22 +52,22 @@ class SparseMoEBlock(nn.Module):
         x_flat = x.view(-1, hidden_dim)  # [num_tokens, hidden_dim]
         num_tokens = x_flat.size(0)
 
-        # Router logits and gating probabilities
-        router_logits = self.gate(x_flat)  # [num_tokens, num_experts]
+        # Router logits and gating probabilities computed in float32 for numerical stability
+        router_logits = self.gate(x_flat.float())  # [num_tokens, num_experts]
         router_probs = F.softmax(router_logits, dim=-1)
 
         # Select Top-K experts per token
         top_k_weights, top_k_indices = torch.topk(router_probs, self.top_k, dim=-1)
-        # Renormalize top-k probabilities to sum to 1
-        top_k_weights = top_k_weights / top_k_weights.sum(dim=-1, keepdim=True)
+        # Renormalize top-k probabilities to sum to 1 safely
+        top_k_weights = top_k_weights / (top_k_weights.sum(dim=-1, keepdim=True) + 1e-6)
 
         # Auxiliary Load-Balancing Loss (Switch Transformer / GShard style)
         # P: average probability assigned to expert i across all tokens
         # f: fraction of tokens dispatched to expert i (based on top-1 choice)
         P = router_probs.mean(dim=0)
         top1_indices = top_k_indices[:, 0]
-        f = torch.bincount(top1_indices, minlength=self.num_experts).float() / num_tokens
-        self.aux_loss = self.num_experts * torch.sum(f * P)
+        f = torch.bincount(top1_indices, minlength=self.num_experts).float() / max(num_tokens, 1)
+        self.aux_loss = (self.num_experts * torch.sum(f * P)).to(x.dtype)
 
         # Dispatch tokens to selected experts and sum weighted outputs
         final_output = torch.zeros_like(x_flat)

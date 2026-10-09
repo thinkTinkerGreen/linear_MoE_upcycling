@@ -28,11 +28,15 @@ def upcycle_smollm2_to_moe(
 
     for idx, layer in enumerate(model.model.layers):
         original_mlp = layer.mlp
-        layer.mlp = SparseMoEBlock(
+        moe_block = SparseMoEBlock(
             original_mlp=original_mlp,
             num_experts=num_experts,
             top_k=top_k,
-        ).to(torch_dtype)
+        )
+        # Keep experts in torch_dtype (half), but keep the router gate in float32 for softmax stability
+        moe_block.experts.to(torch_dtype)
+        moe_block.gate.to(torch.float32)
+        layer.mlp = moe_block
 
     # Enable gradient checkpointing to slash activation memory by ~60%
     if hasattr(model, "gradient_checkpointing_enable"):
