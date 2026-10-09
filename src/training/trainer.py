@@ -137,8 +137,9 @@ def train_worker(rank: int, config: Dict[str, Any]):
                 global_step += 1
 
                 if global_step % log_interval == 0:
-                    avg_lm = running_lm_loss / grad_accum_steps
-                    avg_aux = running_aux_loss / grad_accum_steps
+                    total_accum_batches = log_interval * grad_accum_steps
+                    avg_lm = running_lm_loss / total_accum_batches
+                    avg_aux = running_aux_loss / total_accum_batches
                     avg_total = avg_lm + aux_loss_coef * avg_aux
                     import time
                     print(

@@ -97,14 +97,41 @@ python -m src.data.curate \
 python scripts/run_train.py --config configs/default_config.yaml
 ```
 
-#### C. Evaluate & Generate Responses
+## 📊 Fine-Tuning Summary & Convergence
+
+The dense model was upcycled and fine-tuned across 4 target domains over 3 full epochs (489 steps) with parallel dual-worker data streaming:
+* **Initial LM Loss:** `3.182` (Per-token Cross-Entropy)
+* **Final LM Loss:** `2.484` (Per-token Cross-Entropy)
+* **Auxiliary Loss:** Stabilized at `~30.15` across all 30 layers ($1.005$ per layer), confirming balanced expert distribution with zero routing collapse.
+* **Logs:** The verified training logs are stored in the [`logs/`](logs/) directory:
+  * [`logs/training_log_worker_0.csv`](logs/training_log_worker_0.csv)
+  * [`logs/training_log_worker_1.csv`](logs/training_log_worker_1.csv)
+
+---
+
+## 💻 Running Inference
+
+### A. On the OCI Instance (CPU)
+The model runs cleanly on CPU without requiring a GPU. To test generation on your local machine:
 ```bash
 python scripts/evaluate_moe.py \
   --config configs/default_config.yaml \
-  --prompt "What are the main kharif crops in Maharashtra?"
+  --prompt "What are the main kharif crops grown in Maharashtra and what soil do they need?"
+```
+
+### B. On Google Colab (GPU)
+```bash
+!python /content/linear_MoE_upcycling/scripts/evaluate_moe.py \
+  --config /content/linear_MoE_upcycling/configs/default_config.yaml \
+  --prompt "What are the key nutritional benefits and calorie density of moong dal?"
 ```
 
 ---
 
-## 🛡️ Fault Tolerance & Session Recovery
-All checkpoints are saved atomically (`.pt.tmp` -> `.pt`) to prevent corruption if a Colab session disconnects. When re-running on a new instance or fresh account, `scripts/run_train.py` automatically detects existing checkpoints in the shared Google Drive folder and picks up at the exact `epoch` and `step`.
+## 💾 Saving the Fine-Tuned Model to Google Drive
+
+To export the trained MoE weights (`moe_model_weights.pt`), tokenizer, and configuration as a standalone bundle in Google Drive:
+```bash
+python scripts/save_final_model.py --config configs/default_config.yaml
+```
+This saves everything directly to `/content/drive/MyDrive/linear_MoE_upcycling/final_moe_model/`.
