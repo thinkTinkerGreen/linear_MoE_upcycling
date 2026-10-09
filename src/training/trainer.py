@@ -83,7 +83,13 @@ def train_worker(rank: int, config: Dict[str, Any]):
     log_interval = train_cfg["log_interval"]
     save_interval = train_cfg["save_interval"]
 
+    log_file_path = os.path.join(shared_dir, f"training_log_worker_{rank}.csv")
+    if not os.path.exists(log_file_path):
+        with open(log_file_path, "w", encoding="utf-8") as f:
+            f.write("timestamp,epoch,step,lm_loss,aux_loss,total_loss\n")
+
     print(f"[Worker {rank}] Ready to train for {num_epochs} epochs (Starting epoch {start_epoch}, step {global_step}).")
+    print(f"[Worker {rank}] Logging metrics to {log_file_path}")
 
     for epoch in range(start_epoch, num_epochs):
         optimizer.zero_grad()
@@ -109,7 +115,8 @@ def train_worker(rank: int, config: Dict[str, Any]):
                     if hasattr(layer.mlp, "aux_loss"):
                         aux_loss += layer.mlp.aux_loss.to(device)
 
-                total_loss = (lm_loss + aux_loss_coef * aux_loss) / grad_accum_steps
+                batch_total_loss = lm_loss + aux_loss_coef * aux_loss
+                total_loss = batch_total_loss / grad_accum_steps
 
             scaler.scale(total_loss).backward()
             running_lm_loss += lm_loss.item()
@@ -126,12 +133,19 @@ def train_worker(rank: int, config: Dict[str, Any]):
                 if global_step % log_interval == 0:
                     avg_lm = running_lm_loss / grad_accum_steps
                     avg_aux = running_aux_loss / grad_accum_steps
+                    avg_total = avg_lm + aux_loss_coef * avg_aux
+                    import time
                     print(
                         f"[Worker {rank}] Ep {epoch+1}/{num_epochs} | "
                         f"Step {global_step} | "
                         f"LM Loss: {avg_lm:.4f} | "
-                        f"Aux Loss: {avg_aux:.4f}"
+                        f"Aux Loss: {avg_aux:.4f} | "
+                        f"Total: {avg_total:.4f}"
                     )
+                    # Persist to CSV in Google Drive
+                    with open(log_file_path, "a", encoding="utf-8") as f:
+                        f.write(f"{time.time()},{epoch+1},{global_step},{avg_lm:.5f},{avg_aux:.5f},{avg_total:.5f}\n")
+
                     running_lm_loss = 0.0
                     running_aux_loss = 0.0
 
