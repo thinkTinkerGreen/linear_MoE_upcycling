@@ -13,11 +13,12 @@ from src.utils.checkpoint import save_checkpoint, load_checkpoint
 def train_worker(rank: int, config: Dict[str, Any]):
     """
     Worker process function for dual-process training.
-    
-    Args:
-        rank: Worker ID (0 or 1).
-        config: Loaded YAML configuration dictionary.
     """
+    # Prevent CUDA fragmentation
+    os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     print(f"[Worker {rank}] Starting execution on {device}")
 
@@ -72,8 +73,9 @@ def train_worker(rank: int, config: Dict[str, Any]):
     start_epoch, global_step = load_checkpoint(model, optimizer, shared_dir, device)
 
     # 6. Training Loop Setup
-    use_amp = torch.cuda.is_available()
-    scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
+    use_cuda = torch.cuda.is_available()
+    device_type = "cuda" if use_cuda else "cpu"
+    scaler = torch.amp.GradScaler(device_type, enabled=use_cuda)
     model.train()
 
     num_epochs = train_cfg["num_epochs"]
@@ -101,7 +103,7 @@ def train_worker(rank: int, config: Dict[str, Any]):
             attention_mask = batch["attention_mask"].to(device)
             labels = batch["labels"].to(device)
 
-            with torch.cuda.amp.autocast(enabled=use_amp):
+            with torch.amp.autocast(device_type=device_type, enabled=use_cuda):
                 outputs = model(
                     input_ids=input_ids,
                     attention_mask=attention_mask,
@@ -127,7 +129,7 @@ def train_worker(rank: int, config: Dict[str, Any]):
                 torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=max_grad_norm)
                 scaler.step(optimizer)
                 scaler.update()
-                optimizer.zero_grad()
+                optimizer.zero_grad(set_to_none=True)
                 global_step += 1
 
                 if global_step % log_interval == 0:
