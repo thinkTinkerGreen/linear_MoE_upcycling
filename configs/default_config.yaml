@@ -1,0 +1,28 @@
+# Configuration for SmolLM2-135M Upcycling to Sparse MoE
+
+model:
+  base_model_id: "HuggingFaceTB/SmolLM2-135M-Instruct"
+  num_experts: 4
+  top_k: 2
+  router_init_std: 0.02
+
+data:
+  shared_dir: "/content/drive/MyDrive/SmolLM2_MoE_Shared"
+  max_seq_length: 512
+  num_shards: 2
+
+training:
+  num_epochs: 3
+  local_batch_size: 2
+  grad_accum_steps: 4
+  aux_loss_coef: 0.01
+  max_grad_norm: 1.0
+  seed: 42
+  log_interval: 20
+  save_interval: 100
+
+optimizer:
+  lr_base: 1.0e-6
+  lr_experts: 2.0e-5
+  lr_router: 1.0e-4
+  weight_decay: 0.01
